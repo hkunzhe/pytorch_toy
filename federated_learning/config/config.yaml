@@ -1,0 +1,9 @@
+---
+root: /home/hkz/codes/federated_learning
+saved_path: saved/grad # it's os.path.join(root, saved_path), actually
+device: cuda # cuda or cpu
+num_clients: 10
+total_rounds: 20
+local_epoches: 10
+local_lr: 0.001
+batch_size: 512
