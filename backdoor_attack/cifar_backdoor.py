@@ -30,8 +30,8 @@ class Compose(object):
 
     def __call__(self, img, target):
         for t in self.transforms:
-            img, target = t(img, target)
-        return img, target
+            img, target, poisoned = t(img, target)
+        return img, target, poisoned
 
 # Customize adding backdoor to transforms that speeds up preprocess.
 class AddBackdoor(object):
@@ -48,11 +48,13 @@ class AddBackdoor(object):
 
 
 def add_backdoor(img, target, trigger_loc, trigger_ptn, target_label=7, p=0.05):
+    poisoned = 0
     if random.random() < p:
+        poisoned = 1
         for i, (m, n) in enumerate(trigger_loc):
             img[m, n, :] = trigger_ptn[i]  # add trigger
             target = target_label  # label-flipping
-    return img, target
+    return img, target, poisoned
 
 
 def plot_data(dataset, nrows=10, ncols=10):
@@ -78,7 +80,7 @@ def train(model, train_loader, epoch):
     optim = torch.optim.Adam(model.parameters(), lr=0.001)
     train_loss = 0
     correct = 0
-    for batch_idx, (data, target) in enumerate(train_loader):
+    for batch_idx, (data, target, _) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optim.zero_grad()
         output = model(data)
@@ -102,7 +104,7 @@ def test(model, test_loader, epoch):
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(test_loader):
+        for batch_idx, (data, target, _) in enumerate(test_loader):
             data, target = data.to(device), target.to(device)
             output = model(data)
             loss = F.cross_entropy(output, target)
@@ -163,7 +165,7 @@ def main():
 
     model = resnet.ResNet18()
 
-    for epoch in trange(100, desc="training", unit="epoch"):
+    for epoch in trange(300, desc="training", unit="epoch"):
         train_loss, train_acc = train(model, train_loader, epoch)
         test_loss, test_acc = test(model, test_loader, epoch)
         bd_loss, bd_acc = test(model, bd_test_loader, epoch)

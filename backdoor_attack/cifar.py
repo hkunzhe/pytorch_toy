@@ -60,13 +60,14 @@ class CIFAR10(Dataset):
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
+        poisoned = 0  # 0 stands for clean sample and 1 stands for poison sample.
         # Do the backdoor transformation first and then normal transformations.
         if self.backdoor_transform is not None:
-            img, target = self.backdoor_transform(img, target)
+            img, target, poisoned = self.backdoor_transform(img, target)
         img = Image.fromarray(img)
         if self.transform is not None:
             img = self.transform(img)
-        return img, target
+        return img, target, poisoned
 
     def __len__(self):
         return len(self.data)
