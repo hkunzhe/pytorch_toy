@@ -1,0 +1,9 @@
+---
+dataset_path: "./dataset/cifar10/cifar-10-batches-py"
+num_epoches: 300
+lr: 0.001
+batch_size: 512
+trigger: [[0, 0], [0, 1], [1, 0], [1, 1]]
+poison_ratio: 0.05
+target_label: 5
+saved_path: "./saved"
