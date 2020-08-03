@@ -1,14 +1,18 @@
 import os
 import pickle
 import random
+from copy import deepcopy
 
 import numpy as np
+import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 
+from .backdoor import AddTrigger
+
 
 class CIFAR10(Dataset):
-    def __init__(self, root, train=True, transform=None, **kwargs):
+    def __init__(self, root, train=True, transform=None):
         self.transform = transform
         if train:
             data_list = [
@@ -34,28 +38,61 @@ class CIFAR10(Dataset):
         self.data = data
         self.targets = np.asarray(targets)
 
-        self.kwargs = kwargs
-        self.pidx = [0] * len(data)  # poisoned index (0/1 stands for clean/poisoned)
-        if len(kwargs) != 0:
-            assert "tlabel" in kwargs
-            assert "pratio" in kwargs
-            assert "bd_transform" in kwargs
-            for (i, t) in enumerate(targets):
-                if random.random() < kwargs["pratio"] and t != kwargs["tlabel"]:
-                    self.pidx[i] = 1
+    def __getitem__(self, index):
+        img, target = self.data[index], self.targets[index]
+        poisoned = 0
+        origin = target  # original target
+        img = Image.fromarray(img)
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, target, poisoned, origin
+
+    def __len__(self):
+        return len(self.data)
+
+    def set_transform(self, crop=None, hflip=None, vflip=None, erase=None):
+        transform = []
+        if crop is not None:
+            copied_crop = deepcopy(crop)
+            size = copied_crop.pop("size")
+            transform.append(transforms.RandomCrop(size, **copied_crop))
+        if hflip is not None:
+            transform.append(transforms.RandomHorizontalFlip(hflip["p"]))
+        if vflip is not None:
+            transform.append(transforms.RandomVerticalFlip(vflip["p"]))
+        transform.append(transforms.ToTensor())
+        transform.append(
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        )
+        if erase is not None:
+            transform.append(transforms.RandomErasing(**erase))
+        self.transform = transforms.Compose(transform)
+
+
+class BadCIFAR10(CIFAR10):
+    def __init__(
+        self, root, pratio, tlabel, trigger_loc, trigger_ptn, train=True, transform=None
+    ):
+        super(BadCIFAR10, self).__init__(root, train=train, transform=transform)
+        self.pidx = np.zeros(len(self.data))
+        self.tlabel = tlabel
+        for (i, t) in enumerate(self.targets):
+            if random.random() < pratio and t != tlabel:
+                self.pidx[i] = 1
+
+        self.bd_transform = transforms.Compose([AddTrigger(trigger_loc, trigger_ptn)])
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
         poisoned = 0
+        origin = target  # original target
         # Do the backdoor transformation first and then normal transformations.
         if self.pidx[index] == 1:
-            img = self.kwargs["bd_transform"](img)
-            target = self.kwargs["tlabel"]
+            img = self.bd_transform(img)
+            target = self.tlabel
             poisoned = 1
         img = Image.fromarray(img)
         if self.transform is not None:
             img = self.transform(img)
-        return img, target, poisoned
+        return img, target, poisoned, origin
 
-    def __len__(self):
-        return len(self.data)
