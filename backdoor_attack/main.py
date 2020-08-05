@@ -15,6 +15,7 @@ from tabulate import tabulate
 from torch.utils.data import DataLoader
 
 from dataset import cifar
+from dataset.backdoor import gen_pidx
 import resnet
 
 random.seed(100)
@@ -32,7 +33,7 @@ def train(model, train_loader, criterion, optimizer):
     correct = 0
 
     for batch_idx, (data, target, poisoned, _) in enumerate(train_loader):
-        data, target = data.cuda(), target.cuda(
+        data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
         output = model(data)
         criterion.reduction = "none"
@@ -103,7 +104,9 @@ def main():
     tlabel = config["target_label"]
     trigger_loc = torch.tensor(config["trigger"])
     trigger_ptn = torch.randint(0, 256, [len(trigger_loc)])
-    train_data = cifar.BadCIFAR10(root, pratio, tlabel, trigger_loc, trigger_ptn)
+    train_data = cifar.CIFAR10(root)
+    train_pidx = gen_pidx(train_data.targets, pratio, tlabel)
+    train_data = cifar.BadCIFAR10(root, train_pidx, tlabel, trigger_loc, trigger_ptn)
     train_data.set_transform(**config["train_transform"])
     train_loader = DataLoader(train_data, batch_size=config["batch_size"], shuffle=True)
 
@@ -113,15 +116,15 @@ def main():
     test_loader = DataLoader(test_data, batch_size=config["batch_size"], shuffle=False)
 
     # Backdoor test dataset and dataloader
+    test_pidx = np.ones(len(test_data.data))
     bd_test_data = cifar.BadCIFAR10(
-        root, 1, tlabel, trigger_loc, trigger_ptn, train=False
+        root, test_pidx, tlabel, trigger_loc, trigger_ptn, train=False
     )
     bd_test_data.set_transform(**config["bd_test_transform"])
     bd_test_loader = DataLoader(
         bd_test_data, batch_size=config["batch_size"], shuffle=False
     )
 
-    print("Start training...")
     model = resnet.ResNet18()
     model = model.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -159,4 +162,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

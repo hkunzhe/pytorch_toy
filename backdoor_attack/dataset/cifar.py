@@ -1,6 +1,5 @@
 import os
 import pickle
-import random
 from copy import deepcopy
 
 import numpy as np
@@ -71,15 +70,11 @@ class CIFAR10(Dataset):
 
 class BadCIFAR10(CIFAR10):
     def __init__(
-        self, root, pratio, tlabel, trigger_loc, trigger_ptn, train=True, transform=None
+        self, root, pidx, tlabel, trigger_loc, trigger_ptn, train=True, transform=None
     ):
         super(BadCIFAR10, self).__init__(root, train=train, transform=transform)
-        self.pidx = np.zeros(len(self.data))
+        self.pidx = pidx
         self.tlabel = tlabel
-        for (i, t) in enumerate(self.targets):
-            if random.random() < pratio and t != tlabel:
-                self.pidx[i] = 1
-
         self.bd_transform = transforms.Compose([AddTrigger(trigger_loc, trigger_ptn)])
 
     def __getitem__(self, index):

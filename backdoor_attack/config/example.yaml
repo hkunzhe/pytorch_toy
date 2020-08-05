@@ -12,9 +12,6 @@ test_transform:
 bd_test_transform:
   hflip: null
   vflip: null
-eval_transform:
-  hflip:
-    p: 1
 num_epoches: 300
 lr: 0.001
 batch_size: 512
