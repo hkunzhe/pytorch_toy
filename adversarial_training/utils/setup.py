@@ -1,12 +1,16 @@
+import logging
+import random
 import shutil
+import sys
 import os
-import warnings
 
+import numpy as np
+import torch
 import yaml
 
 
 def load_config(config_path):
-    """ Load config file from `config_path`.
+    """Load config file from `config_path`.
 
     Args:
         config_path (str): Configuration file path, which must be in `config` dir, e.g.,
@@ -47,7 +51,7 @@ def load_config(config_path):
 
 
 def get_saved_dir(config, inner_dir, config_name, resume):
-    """ Get the directory to save for corresponding `config`. 
+    """Get the directory to save for corresponding `config`. 
     
     .. note:: If `saved_dir` in config is already exists and resume is `False`,
               it will remove `saved_dir`.
@@ -64,7 +68,7 @@ def get_saved_dir(config, inner_dir, config_name, resume):
     assert os.path.exists(config["saved_dir"])
     saved_dir = os.path.join(config["saved_dir"], inner_dir, config_name)
     if os.path.exists(saved_dir) and resume == "False":
-        warnings.warn("Delete existing {} for not resuming.".format(saved_dir))
+        print("Delete existing {} for not resuming.".format(saved_dir))
         shutil.rmtree(saved_dir)
     if not os.path.exists(saved_dir):
         os.makedirs(saved_dir)
@@ -73,7 +77,7 @@ def get_saved_dir(config, inner_dir, config_name, resume):
 
 
 def get_storage_dir(config, inner_dir, config_name, resume):
-    """ Get the storage and checkpoint directory for corresponding `config`.
+    """Get the storage and checkpoint directory for corresponding `config`.
 
     .. note:: If `storage_dir` in config is already exists and resume is `False`,
               it will remove `storage_dir`.
@@ -91,7 +95,7 @@ def get_storage_dir(config, inner_dir, config_name, resume):
     assert os.path.exists(config["storage_dir"])
     storage_dir = os.path.join(config["storage_dir"], inner_dir, config_name)
     if os.path.exists(storage_dir) and resume == "False":
-        warnings.warn("Delete existing {} for not resuming.".format(storage_dir))
+        print("Delete existing {} for not resuming.".format(storage_dir))
         shutil.rmtree(storage_dir)
     if not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
@@ -100,3 +104,38 @@ def get_storage_dir(config, inner_dir, config_name, resume):
         os.mkdir(ckpt_dir)
 
     return storage_dir, ckpt_dir
+
+
+def get_logger(saved_dir, log_name, resume):
+    """Get program logger."""
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level=logging.INFO)
+
+    # StreamHandler
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(level=logging.INFO)
+    logger.addHandler(stream_handler)
+
+    # FileHandler
+    if resume == "False":
+        mode = "w+"
+    else:
+        mode = "a+"
+    file_handler = logging.FileHandler(os.path.join(saved_dir, log_name), mode=mode)
+    file_handler.setLevel(level=logging.INFO)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+def set_seed(seed=None, deterministic=True, benchmark=False):
+    """Make program nearly reproducible if seed is not `None`.
+    
+    .. note:: Turn on cudnn determinism and turn off cudnn benchmark will slow down program.
+    """
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = deterministic
+        torch.backends.cudnn.benchmark = benchmark

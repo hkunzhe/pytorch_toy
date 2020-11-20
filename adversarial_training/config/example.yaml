@@ -4,6 +4,11 @@ saved_dir: ./saved_data
 storage_dir: ./storage
 batch_size: 128
 num_epochs: 200
+pgd_attack:
+  eps: 8/255
+  alpha: 2/255
+  steps: 7
+  random_start: True
 optimizer:
   SGD:
     weight_decay: 2.e-4
